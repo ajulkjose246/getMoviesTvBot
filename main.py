@@ -2,8 +2,8 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 import os
 
-BOT_TOKEN = os.environ.get("7082831105:AAFesRCvibCeyUR4WfP5bEtoLyTlvoGxv00")
-
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+app = ApplicationBuilder().token(BOT_TOKEN).build()
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
