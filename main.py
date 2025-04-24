@@ -1,16 +1,18 @@
 import os
-import threading
-from flask import Flask, send_from_directory
+from flask import Flask, request, send_from_directory
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-# Load bot token from environment variable
+# Load environment variables
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
+WEBHOOK_URL = os.environ.get("WEBHOOK_URL")  # Your Render URL + /webhook
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # Flask server
 server = Flask(__name__)
+# Initialize bot application globally
+application = ApplicationBuilder().token(BOT_TOKEN).build()
 
 @server.route('/')
 def index():
@@ -20,6 +22,12 @@ def index():
 @server.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
+
+# Webhook endpoint
+@server.route('/webhook', methods=['POST'])
+async def webhook():
+    await application.update_queue.put(Update.de_json(request.get_json(), application.bot))
+    return 'OK'
 
 # Telegram bot handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -31,20 +39,27 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_path = f"{UPLOAD_FOLDER}/{document.file_unique_id}_{document.file_name}"
     await file.download_to_drive(file_path)
 
-    # Replace "your-app-name" with your actual Render app subdomain
-    link = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/uploads/{os.path.basename(file_path)}"
+    link = f"{WEBHOOK_URL}/uploads/{os.path.basename(file_path)}"
     await update.message.reply_text(f"Here's your link: {link}")
 
-# Run bot in a separate thread
-def run_bot():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.Document.ALL, handle_file))
-    app.run_polling()
+# Initialize bot handlers
+def init_bot():
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(MessageHandler(filters.Document.ALL, handle_file))
+    return application
 
-# Run Flask + bot
 if __name__ == '__main__':
-    threading.Thread(target=run_bot).start()
+    # Initialize the bot
+    app = init_bot()
+    
+    # Set webhook
     port = int(os.environ.get("PORT", 10000))
     print(f"Starting server on port {port}")
-    server.run(host='0.0.0.0', port=port, debug=False)
+    
+    # Start the webhook
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=port,
+        webhook_url=f"{WEBHOOK_URL}/webhook",
+        drop_pending_updates=True
+    )
