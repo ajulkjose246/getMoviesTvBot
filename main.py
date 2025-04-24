@@ -23,7 +23,7 @@ def uploaded_file(filename):
 
 # Telegram bot handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send me a file and I’ll give you a link!")
+    await update.message.reply_text("Send me a file and I'll give you a link!")
 
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     document = update.message.document
@@ -33,7 +33,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Replace "your-app-name" with your actual Render app subdomain
     link = f"https://{os.environ.get('RENDER_EXTERNAL_HOSTNAME')}/uploads/{os.path.basename(file_path)}"
-    await update.message.reply_text(f"Here’s your link: {link}")
+    await update.message.reply_text(f"Here's your link: {link}")
 
 # Run bot in a separate thread
 def run_bot():
@@ -46,4 +46,5 @@ def run_bot():
 if __name__ == '__main__':
     threading.Thread(target=run_bot).start()
     port = int(os.environ.get("PORT", 10000))
-    server.run(host='0.0.0.0', port=port)
+    print(f"Starting server on port {port}")
+    server.run(host='0.0.0.0', port=port, debug=False)
