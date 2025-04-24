@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: telegram-file-bot
+    env: python
+    buildCommand: ""
+    startCommand: "python main.py"
+    envVars:
+      - key: BOT_TOKEN
+        value: 7082831105:AAFesRCvibCeyUR4WfP5bEtoLyTlvoGxv00
