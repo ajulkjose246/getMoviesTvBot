@@ -1,5 +1,6 @@
 import os
-from flask import Flask, request, send_from_directory
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
@@ -9,25 +10,28 @@ WEBHOOK_URL = "https://getmoviestvbot.onrender.com"  # Your specific Render URL
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# Flask server
-server = Flask(__name__)
+# FastAPI server
+app = FastAPI()
+
 # Initialize bot application globally
 application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-@server.route('/')
-def index():
+@app.get("/")
+async def index():
     return "Telegram File-to-Link Bot is Running!"
 
 # Serve uploaded files
-@server.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+@app.get("/uploads/{filename}")
+async def uploaded_file(filename: str):
+    return FileResponse(os.path.join(UPLOAD_FOLDER, filename))
 
 # Webhook endpoint
-@server.route('/webhook', methods=['POST'])
-async def webhook():
-    await application.update_queue.put(Update.de_json(request.get_json(), application.bot))
-    return 'OK'
+@app.post("/webhook")
+async def webhook(request: Request):
+    json_data = await request.json()
+    update = Update.de_json(json_data, application.bot)
+    await application.update_queue.put(update)
+    return {"status": "OK"}
 
 # Telegram bot handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -46,20 +50,15 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def init_bot():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_file))
-    return application
 
 if __name__ == '__main__':
     # Initialize the bot
-    app = init_bot()
+    init_bot()
     
     # Set webhook
     port = int(os.environ.get("PORT", 10000))
     print(f"Starting server on port {port}")
-    
-    # Start the webhook
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=port,
-        webhook_url=f"{WEBHOOK_URL}/webhook",
-        drop_pending_updates=True
-    )
+
+    # Start FastAPI server
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port)
